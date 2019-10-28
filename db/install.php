@@ -17,7 +17,8 @@
 /**
  * Post-install script for the quiz scoreboard report.
  * @package   quiz_scoreboard
- * @copyright 2019 William Junkin, Eckerd College (http://www.eckerd.edu)
+ * @copyright 2019 William Junkin, Eckerd College (http://www.eckerd.edu).
+ *            2019 Richard Lobb, University of Canterbury (http://canterbury.ac.nz)
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 

@@ -33,8 +33,6 @@ defined('MOODLE_INTERNAL') || die();
  * product of thefraction associated with
  * the grade assigned to the answer the student has given.
  * A lot of this comes from the question/engine/ scripts.
- * @copyright  2016 W. F. Junkin, Eckerd College, http://www.eckerd.edu
- * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  **/
 class quiz_scoreboard_mark {
     /**
@@ -69,21 +67,16 @@ class quiz_scoreboard_mark {
      */
     public function get_mark ($slot, $myresponse) {
         $myquestion = $this->dm->get_question($slot);
-        // debugging(print_r($myquestion, true));
-        $response[0] = 'no summary available';
-        if (method_exists($myquestion, 'summarise_response')) {
-            $response[0] = $myquestion->summarise_response($myresponse);
-        }
-        $response[1] = 'NA';
+        $marks = 'NA';
         if (method_exists($myquestion, 'grade_response')
             && is_callable(array($myquestion, 'grade_response'))) {
             $grade = $myquestion->grade_response($myresponse);
             if ($grade[0] == 0) {
                 $grade[0] = 0.001;// This is set so that the isset function returns a value of true.
             }
-            $response[1] = $grade[0] * $myquestion->defaultmark;
+            $marks = $grade[0] * $myquestion->defaultmark;
         }
-        return $response;
+        return $marks;
     }
 }
 

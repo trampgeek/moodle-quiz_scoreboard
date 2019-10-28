@@ -15,11 +15,11 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Quiz scoreboard report class.
+ * Quiz scoreboard report class. Based on liveviewgrid report class.
  *
  * @package   quiz_scoreboard
- * @copyright 2014 Open University
- * @author    James Pratt <me@jamiep.org>
+ * @copyright 2014 Open University, 2019 University of Canterbury
+ * @author    James Pratt <me@jamiep.org>, Richard Lobb <richard.lobb@canterbury.ac.nz>
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
@@ -30,9 +30,6 @@ require_once($CFG->dirroot."/mod/quiz/report/scoreboard/classes/quiz_scoreboard_
  * a live quiz for use as a Scoreboard in contests.
  *
  * It gives the most recent answers from all students.
- *
- * @copyright 2018 William Junkin, 2019 Richard Lobb
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class quiz_scoreboard_report extends quiz_default_report {
 
@@ -42,10 +39,6 @@ class quiz_scoreboard_report extends quiz_default_report {
     /** @var quiz_scoreboard_table instance of table class used for main questions stats table. */
     protected $table;
 
-    /** @var int either 1 or 0 in the URL get determined by the teacher to show or hide grades of answers. */
-    protected $evaluate = 0; // *** RJL *** always 1.
-    /** @var int either 1 or 0 in the URL get determined by the teacher to show or hide grading key. */
-    protected $showkey = 0;
     /** @var int either 1 or 0 in the URL get determined by the teacher to order by names (0) or total score (1). */
     protected $order = 0;
     /** @var int the id of the group that is being displayed. If the value is 0, results are from all students. */
@@ -76,8 +69,6 @@ class quiz_scoreboard_report extends quiz_default_report {
      */
     public function display($quiz, $cm, $course) {
         global $OUTPUT, $DB, $CFG;
-        $evaluate = 1;
-        $showkey = optional_param('showkey', 0, PARAM_INT);
         $order = optional_param('order', 0, PARAM_INT);
         $group = optional_param('group', 0, PARAM_INT);
         $id = optional_param('id', 0, PARAM_INT);
@@ -98,52 +89,45 @@ class quiz_scoreboard_report extends quiz_default_report {
         $slots = $this->scoreboardslots($quizid);
         $question = $this->scoreboardquestion($slots);
         $quizattempts = $DB->get_records('quiz_attempts', array('quiz' => $quizid));
-        // These arrays are the 'answr' or 'mark' indexed by userid and questionid.
-        $stanswers = array();
-        $stmark = array();
+
+        $stmark = array(); // Array of marks, indexed by userid and questionid
+        $t0 = time();
         foreach ($quizattempts as $key => $quizattempt) {
             $usrid = $quizattempt->userid;
             $qubaid = $quizattempt->uniqueid;
-            $mydm = new quiz_scoreboard_mark($qubaid);
+            $mydm = null;
             $qattempts = $DB->get_records('question_attempts', array('questionusageid' => $qubaid));
             foreach ($qattempts as $qattempt) {
-                $myresponse = array();
-                $qattemptsteps = $DB->get_records('question_attempt_steps', array('questionattemptid' => $qattempt->id));
-                foreach ($qattemptsteps as $qattemptstep) {
-                    if (($qattemptstep->state == 'complete') || ($qattemptstep->state == 'invalid')) {// Handling Cloze questions.
+                $questionid = $qattempt->questionid;
+                if (!isset($question['qtype'][$questionid])) {
+                    continue;
+                }
+
+                // Firstly see if we already have graded questions, which will
+                // be the case if we're running in Adaptive mode or (regardless)
+                // for CodeRunner questions.
+                $max_fraction = $DB->get_record('question_attempt_steps',
+                        array('questionattemptid' => $qattempt->id, 'state'=>'complete'), "max(fraction) as fract");
+                if ($max_fraction) {
+                    $stmark[$usrid][$questionid] = $max_fraction->fract * $question['maxmark'][$questionid];
+                } else if ($question['qtype'][$questionid] === 'coderunner') {
+                    $stmark[$usrid][$questionid] = 'NA';
+                } else {
+
+                    // No fraction available. Try the slow way.
+                    $myresponse = array();
+                    $mydm = new quiz_scoreboard_mark($qubaid);
+                    $qattemptsteps = $DB->get_records('question_attempt_steps',
+                            array('questionattemptid' => $qattempt->id, 'state'=>'complete'));
+                    foreach ($qattemptsteps as $qattemptstep) {
+
                         $answers = $DB->get_records('question_attempt_step_data', array('attemptstepid' => $qattemptstep->id));
                         foreach ($answers as $answer) {
                             $myresponse[$answer->name] = $answer->value;
                         }
                         if (count($myresponse) > 0) {
-                            $clozeresponse = array();// An array for the Close responses.
-                            foreach ($myresponse as $key => $respon) {
-                                // For cloze questions the key will be sub(\d*)_answer.
-                                // I need to take the answer that follows part (\d):(*)?;.
-                                if (preg_match('/sub(\d)*\_answer/', $key, $matches)) {
-                                    $clozequestionid = $qattempt->questionid;
-                                    // Finding the number of parts.
-                                    $numclozeparts = $DB->count_records('question', array('parent' => $clozequestionid));
-                                    $myres = array();
-                                    $myres[$key] = $respon;
-                                    $newres = $mydm->get_mark($qattempt->slot, $myres);
-                                    $onemore = $numclozeparts + 1;
-                                    $tempans = $newres[0]."; part $onemore";
-                                    $index = $matches[1];
-                                    $nextindex = $index + 1;
-                                    $tempcorrect = 'part '.$matches[1].': ';
-                                    if (preg_match("/$tempcorrect(.*); part $nextindex/", $tempans, $ansmatch)) {
-                                        $clozeresponse[$matches[1]] = $ansmatch[1];
-                                    }
-                                }
-                            }
-                            $response = $mydm->get_mark($qattempt->slot, $myresponse);
-                            if (count($clozeresponse) > 0) {
-                                $stanswers[$usrid][$qattempt->questionid] = $clozeresponse;
-                            } else {
-                                $stanswers[$usrid][$qattempt->questionid] = $response[0];
-                            }
-                            $stmark[$usrid][$qattempt->questionid] = $response[1];
+                            $mark = $mydm->get_mark($qattempt->slot, $myresponse);
+                            $stmark[$usrid][$questionid] = $mark;
                         }
                     }
                 }
@@ -153,11 +137,11 @@ class quiz_scoreboard_report extends quiz_default_report {
         $qmaxtime = $this->scoreboardquizmaxtime($quizcontextid);
 
         if ($order) {
-            $urlget = "id=$id&mode=$mode&evaluate=$evaluate&showkey=$showkey&order=0&group=$group";
+            $urlget = "id=$id&mode=$mode&order=0&group=$group";
             echo "<a href='".$CFG->wwwroot."/mod/quiz/report.php?$urlget'>";
             echo get_string('ordername', 'quiz_scoreboard')."</a>\n";
         } else {
-            $urlget = "id=$id&mode=$mode&evaluate=$evaluate&showkey=$showkey&order=1&group=$group";
+            $urlget = "id=$id&mode=$mode&order=1&group=$group";
             echo "<a href='".$CFG->wwwroot."/mod/quiz/report.php?$urlget'>";
             echo get_string('orderscore', 'quiz_scoreboard')."</a>\n";
         }
@@ -166,12 +150,12 @@ class quiz_scoreboard_report extends quiz_default_report {
         // Find out if there may be groups. If so, allow the teacher to choose a group.
         if ($cm->groupmode) {
             echo get_string('whichgroups', 'quiz_scoreboard');
-            $urlget = "id=$id&mode=$mode&evaluate=$evaluate&showkey=$showkey&order=$order&group=0";
+            $urlget = "id=$id&mode=$mode&order=$order&group=0";
             echo "<a href='".$CFG->wwwroot."/mod/quiz/report.php?$urlget'>";
             echo get_string('allresponses', 'quiz_scoreboard')."</a>";
             $groups = $DB->get_records('groups', array('courseid' => $course->id));
             foreach ($groups as $grp) {
-                $urlget = "id=$id&mode=$mode&evaluate=$evaluate&showkey=$showkey&order=$order&group=".$grp->id;
+                $urlget = "id=$id&mode=$mode&order=$order&group=".$grp->id;
                 echo get_string('or', 'quiz_scoreboard')."<a href='".$CFG->wwwroot."/mod/quiz/report.php?$urlget'>";
                 echo $grp->name."</a>";
             }
@@ -223,15 +207,15 @@ class quiz_scoreboard_report extends quiz_default_report {
         echo "<table border=\"1\" width=\"100%\" id='timemodified' name=$qmaxtime>\n";
         echo "<thead><tr>";
 
-        echo "<th>Name</th>\n<th>Total</th>\n";
+        echo "<th>Name</th>\n<th style='text-align:center'>Total</th>\n";
 
+        $qnum = 1;
         foreach ($slots as $key => $slotvalue) {
-            echo "<th style=\"word-wrap: break-word;\">";
+            echo "<th style=\"word-wrap: break-word;text-align:center\">";
             if (isset($question['name'][$key])) {
-                    $graphurl = $CFG->wwwroot.'/mod/quiz/report/scoreboard/quizgraphics.php?question_id='.$key."&quizid=".$quizid;
-                    echo "<a href='".$graphurl."' target=\"_blank\">";
-                    echo substr(trim(strip_tags($question['name'][$key])), 0, 80);
-                    echo "</a>";
+                // echo substr(trim(strip_tags($question['name'][$key])), 0, 80);
+                echo "Q" . strval($qnum);
+                $qnum += 1;
             }
             echo "</th>\n";
         }
@@ -357,7 +341,7 @@ class quiz_scoreboard_report extends quiz_default_report {
      * questions. TODO: refactor scoreboardslots and scoreboardquestion to
      * avoid redundant DB queries.
      * @param int $quizid The id for this quiz.
-     * @return array $slots The slot values (from the quiz_slots table) indexed by question ids.
+     * @return array $marks The max_marks indexed by question ids.
      */
     private function scoreboardslots($quizid) {
         global $DB;
@@ -366,25 +350,25 @@ class quiz_scoreboard_report extends quiz_default_report {
         foreach ($myslots as $key => $value) {
             if ($myquestion = $DB->get_record('question', array('id' => $value->questionid))) {
                 if ($myquestion->qtype != 'description') {
-                    $slots[$value->questionid] = $value->slot;
+                    $slots[$value->questionid] = $value->maxmark;
                 }
             }
         }
         return $slots;
     }
     /**
-     * Function to get the qtype, name, questiontext for each question.
+     * Function to get the qtype, name, default mark for each question.
      * @param array $slots and array of slot ids indexed by question ids.
      * @return array $question. A doubly indexed array giving qtype, qname, and qtext for the questions.
      */
     private function scoreboardquestion($slots) {
         global $DB;
         $question = array();
-        foreach ($slots as $questionid => $slotvalue) {
+        foreach ($slots as $questionid => $maxmark) {
             if ($myquestion = $DB->get_record('question', array('id' => $questionid))) {
                 $question['qtype'][$questionid] = $myquestion->qtype;
                 $question['name'][$questionid] = $myquestion->name;
-                $question['questiontext'][$questionid] = $myquestion->questiontext;
+                $question['maxmark'][$questionid] = $maxmark;
             }
         }
         return $question;
