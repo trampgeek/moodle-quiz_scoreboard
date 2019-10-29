@@ -1,0 +1,35 @@
+/*
+    Style sheet for mod quiz report scoreboard
+    Created on : 29/10/2019
+    Author     : Richard Lobb
+*/
+table.mod-quiz-report-scoreboard-table tr {
+    line-height: 75%;
+}
+
+table.mod-quiz-report-scoreboard-table td.mark {
+    text-align: center;
+}
+
+table.mod-quiz-report-scoreboard-table td.correct {
+    background-color: lightgreen;
+}
+
+table.mod-quiz-report-scoreboard-table td.partial {
+    background-color: #c0ffc0;
+}
+
+table.mod-quiz-report-scoreboard-table td.wrong {
+    background-color: #ffb0a0;
+}
+
+table.mod-quiz-report-scoreboard-table td.total {
+    background-color: #f0f0f0;
+}
+
+span#mod-quiz-report-refresh {
+    background-color: yellow;
+}
+
+
+

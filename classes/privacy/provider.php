@@ -18,7 +18,8 @@
  * Privacy Subsystem implementation for quiz_scoreboard.
  *
  * @package    quiz_scoreboard
- * @copyright  2018 William Junkin <junkinwf@eckerd.edu>
+ * @copyright 2014 Open University, 2019 University of Canterbury
+ * @author    James Pratt <me@jamiep.org>, Richard Lobb <richard.lobb@canterbury.ac.nz>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 

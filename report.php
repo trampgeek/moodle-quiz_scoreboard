@@ -40,7 +40,7 @@ class quiz_scoreboard_report extends quiz_default_report {
     protected $table;
 
     /** @var int either 1 or 0 in the URL get determined by the teacher to order by names (0) or total score (1). */
-    protected $order = 0;
+    protected $order = 1;
     /** @var int the id of the group that is being displayed. If the value is 0, results are from all students. */
     protected $group = 0;
     /** @var int The time of the last student response to a question. */
@@ -69,7 +69,7 @@ class quiz_scoreboard_report extends quiz_default_report {
      */
     public function display($quiz, $cm, $course) {
         global $OUTPUT, $DB, $CFG;
-        $order = optional_param('order', 0, PARAM_INT);
+        $order = optional_param('order', 1, PARAM_INT);
         $group = optional_param('group', 0, PARAM_INT);
         $id = optional_param('id', 0, PARAM_INT);
         $mode = optional_param('mode', '', PARAM_ALPHA);
@@ -145,7 +145,8 @@ class quiz_scoreboard_report extends quiz_default_report {
             echo "<a href='".$CFG->wwwroot."/mod/quiz/report.php?$urlget'>";
             echo get_string('orderscore', 'quiz_scoreboard')."</a>\n";
         }
-        echo "&nbsp&nbsp&nbsp&nbsp";
+        echo "&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp";
+        echo "<span id='mod-quiz-report-refresh' style='display:none'>".get_string('refreshpage', 'quiz_scoreboard').'</span>';
 
         // Find out if there may be groups. If so, allow the teacher to choose a group.
         if ($cm->groupmode) {
@@ -161,26 +162,10 @@ class quiz_scoreboard_report extends quiz_default_report {
             }
         }
 
-        // CSS style for blinking 'Refresh Page!' notice.
-        echo "\n<style>";
-        echo "\n .blinking{";
-        echo "\n    animation:blinkingText 0.8s infinite;";
-        echo "\n}";
-        echo "\n @keyframes blinkingText{";
-        echo "\n    0%{     color: red;    }";
-        echo "\n    50%{    color: transparent; }";
-        echo "\n    100%{   color: red;    }";
-        echo "\n}";
-        echo "\n .blinkhidden{";
-        echo "\n    color: transparent;";
-        echo "\n}";
-        echo "\n</style>";
-
-        // Javascript and css to make a blinking 'Refresh Page' appear when the page stops refreshing responses.
-        echo "\n<div id=\"blink1\" class=\"blinkhidden\">".get_string('refreshpage', 'quiz_scoreboard')."</div>";
+         // Javascript to show 'Refresh Page' message when the page stops refreshing responses.
         echo "\n<script>";
-        echo "\n  function myFunction() {";
-        echo "\n    document.getElementById('blink1').setAttribute(\"class\", \"blinking\");";
+        echo "\n  function modquizreportrefresh() {";
+        echo "\n    document.getElementById('mod-quiz-scoreboard-refresh').setAttribute(\"style\", \"display:inline\");";
         echo "\n }";
         echo "\n</script>";
 
@@ -204,7 +189,7 @@ class quiz_scoreboard_report extends quiz_default_report {
             $users = $sofar;
         }
 
-        echo "<table border=\"1\" width=\"100%\" id='timemodified' name=$qmaxtime>\n";
+        echo "<table class='table table-bordered mod-quiz-report-scoreboard-table' style='width:auto' id='timemodified' name=$qmaxtime>\n";
         echo "<thead><tr>";
 
         echo "<th>Name</th>\n<th style='text-align:center'>Total</th>\n";
@@ -234,23 +219,23 @@ class quiz_scoreboard_report extends quiz_default_report {
                     $mark = 0;
                     if (isset($stmark[$user][$questionid]) and ($stmark[$user][$questionid] !== 'NA')) {
                         $mark = $stmark[$user][$questionid];
-                        if ($mark > 0.01) {
-                            $color = 'lightgreen';
+                        $class = 'mark';
+                        if ($mark > 0.8) {
+                            $class .= ' correct';
+                        } else if ($mark > 0.2) {
+                            $class .= ' partial';
                         } else if ($mark > 0.0) {
-                            $color = 'salmon';
-                        } else {
-                            $color = 'white';
+                            $class .= ' wrong';
                         }
                         $total_mark += $mark;
-                        $style = "style='text-align: center; background-color: $color'";
                     }
                     if ($mark) {
-                        $markshtml .= "<td $style>" . number_format($mark, 2) . "</td>";
+                        $markshtml .= "<td class='$class'>" . number_format($mark, 2) . "</td>";
                     } else {
                         $markshtml .= "<td></td>";
                     }
                 }
-                $row .= "<td style='text-align: center'>" . number_format($total_mark, 2) . "</td>";
+                $row .= "<td class='mark total'>" . number_format($total_mark, 2) . "</td>";
                 $row .= "$markshtml</tr>\n";
                 $rows[] = array($name, $total_mark, $row);
             }
@@ -302,7 +287,7 @@ class quiz_scoreboard_report extends quiz_default_report {
             echo "\n if(numrefresh < $maxrepeat) {";
             echo "\n    var t=setTimeout(\"replace()\",$replacetime);";
             echo "\n } else {";
-            echo "\n myFunction();";
+            echo "\n modquizreportrefresh();";
             echo "\n }";
             echo "\nhttp.open(\"GET\", \"".$graphicshashurl.$t."\", true);";
             echo "\nhttp.onreadystatechange=function() {\nif(http.readyState == 4) {";
