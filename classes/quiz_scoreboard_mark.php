@@ -63,18 +63,22 @@ class quiz_scoreboard_mark {
      *
      * @param int $slot The value of the id for this question in the slot table.
      * @param string $myresponse The response that the student gave.
-     * @return real The marks (points) for the answer the student gave.
+     * @return A two element array containing the fraction of the marks
+     * awarded to the student's answer and what the question was marked out of.
+     * The product of the two is thus the actual mark. If no mark is possible
+     * because the question does not have a callable 'grade_response' method,
+     * the return value is false
      */
     public function get_mark ($slot, $myresponse) {
         $myquestion = $this->dm->get_question($slot);
-        $marks = 'NA';
+        $marks = false;
         if (method_exists($myquestion, 'grade_response')
             && is_callable(array($myquestion, 'grade_response'))) {
             $grade = $myquestion->grade_response($myresponse);
             if ($grade[0] == 0) {
                 $grade[0] = 0.001;// This is set so that the isset function returns a value of true.
             }
-            $marks = $grade[0] * $myquestion->defaultmark;
+            $marks = array($grade[0], $myquestion->defaultmark);
         }
         return $marks;
     }

@@ -90,8 +90,10 @@ class quiz_scoreboard_report extends quiz_default_report {
         $question = $this->scoreboardquestion($slots);
         $quizattempts = $DB->get_records('quiz_attempts', array('quiz' => $quizid));
 
-        $stmark = array(); // Array of marks, indexed by userid and questionid
-        $t0 = time();
+        // Compute the array of marks $stmark[$userid][$questionid]. Each
+        // mark is either false (no mark possible) or a 2-element array of
+        // fraction, max_possible.
+        $stmark = array();
         foreach ($quizattempts as $key => $quizattempt) {
             $usrid = $quizattempt->userid;
             $qubaid = $quizattempt->uniqueid;
@@ -109,9 +111,9 @@ class quiz_scoreboard_report extends quiz_default_report {
                 $max_fraction = $DB->get_record('question_attempt_steps',
                         array('questionattemptid' => $qattempt->id, 'state'=>'complete'), "max(fraction) as fract");
                 if ($max_fraction) {
-                    $stmark[$usrid][$questionid] = $max_fraction->fract * $question['maxmark'][$questionid];
+                    $stmark[$usrid][$questionid] = array($max_fraction->fract, $question['maxmark'][$questionid]);
                 } else if ($question['qtype'][$questionid] === 'coderunner') {
-                    $stmark[$usrid][$questionid] = 'NA';
+                    $stmark[$usrid][$questionid] = false;
                 } else {
 
                     // No fraction available. Try the slow way.
@@ -127,7 +129,11 @@ class quiz_scoreboard_report extends quiz_default_report {
                         }
                         if (count($myresponse) > 0) {
                             $mark = $mydm->get_mark($qattempt->slot, $myresponse);
-                            $stmark[$usrid][$questionid] = $mark;
+                            if ($mark) {
+                                $stmark[$usrid][$questionid] = $mark;
+                            } else {
+                                $stmark[$usrid][$questionid] = false;
+                            }
                         }
                     }
                 }
@@ -217,14 +223,15 @@ class quiz_scoreboard_report extends quiz_default_report {
                 $markshtml = '';
                 foreach ($slots as $questionid => $slotvalue) {
                     $mark = 0;
-                    if (isset($stmark[$user][$questionid]) and ($stmark[$user][$questionid] !== 'NA')) {
-                        $mark = $stmark[$user][$questionid];
+                    if (isset($stmark[$user][$questionid]) and $stmark[$user][$questionid]) {
+                        list($fraction, $outof) = $stmark[$user][$questionid];
+                        $mark = $fraction * $outof;
                         $class = 'mark';
-                        if ($mark > 0.8) {
+                        if ($fraction > 0.8) {
                             $class .= ' correct';
-                        } else if ($mark > 0.2) {
+                        } else if ($fraction > 0.2) {
                             $class .= ' partial';
-                        } else if ($mark > 0.0) {
+                        } else if ($fraction > 0.0) {
                             $class .= ' wrong';
                         }
                         $total_mark += $mark;
