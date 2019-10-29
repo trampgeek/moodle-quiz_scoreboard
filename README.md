@@ -6,8 +6,8 @@ This module is a modified version of the Live Report plugin, compatible for Mood
 
 This quiz report module allows teachers to see, in real time, the progress of a
 live quiz, such as might be seen in a programming contest. It shows which students
-have attempted which questions. Successful attempts are coloured gree, unsuccessful
-attempts are coloured red.
+have attempted which questions. Successful attempts are coloured green, partially
+successful attempts are very pale green, unsuccessful attempts are red.
 
 As students change their answers or submit more answers, the spreadsheet is
 refreshed.
@@ -18,3 +18,8 @@ To install this module, place the scoreboard directory as a sub-directory in the
 
 After installing this quiz report module, teachers can click on the "Scoreboard"
 option in the "Report" drop-down menu to access this scoreboard.
+
+Recommended primarily for use with quizzes running in adaptive mode, since
+these quizzes have questions marked on the fly, with marks already recorded
+in the database. This makes for a much faster update of the display, which
+can be painfully slow with larger classes otherwise.
