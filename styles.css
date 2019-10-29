@@ -4,7 +4,7 @@
     Author     : Richard Lobb
 */
 table.mod-quiz-report-scoreboard-table tr {
-    line-height: 75%;
+    line-height: 100%;
 }
 
 table.mod-quiz-report-scoreboard-table td.mark {
