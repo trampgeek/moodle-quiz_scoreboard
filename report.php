@@ -24,7 +24,24 @@
  */
 
 defined('MOODLE_INTERNAL') || die();
-require_once($CFG->dirroot."/mod/quiz/report/scoreboard/classes/quiz_scoreboard_mark.php");
+
+/**
+ * Information about the question appearing in a particular quiz slot.
+ */
+class quiz_scoreboard_report_question {
+    public $questionid = 0;
+    public $name = null;
+    public $qtype = null;
+    public $maxmark = 0;
+
+    public function __construct($questionid, $name, $qtype, $maxmark) {
+        $this->questionid = $questionid;
+        $this->name = $name;
+        $this->qtype = $qtype;
+        $this->maxmark = $maxmark;
+    }
+}
+
 /**
  * The class quiz_scoreboard_report provides a dynamic view of the status of a
  * a live quiz for use as a Scoreboard in contests.
@@ -73,7 +90,6 @@ class quiz_scoreboard_report extends quiz_default_report {
         $group = optional_param('group', 0, PARAM_INT);
         $id = optional_param('id', 0, PARAM_INT);
         $mode = optional_param('mode', '', PARAM_ALPHA);
-        $slots = array();
         $question = array();
         $users = array();
         $sofar = array();
@@ -86,60 +102,8 @@ class quiz_scoreboard_report extends quiz_default_report {
         $this->print_header_and_tabs($cm, $course, $quiz, 'scoreboard');
         $context = $DB->get_record('context', array('instanceid' => $cm->id, 'contextlevel' => 70));
         $quizcontextid = $context->id;
-        $slots = $this->scoreboardslots($quizid);
-        $question = $this->scoreboardquestion($slots);
-        $quizattempts = $DB->get_records('quiz_attempts', array('quiz' => $quizid));
-
-        // Compute the array of marks $stmark[$userid][$questionid]. Each
-        // mark is either false (no mark possible) or a 2-element array of
-        // fraction, max_possible.
-        $stmark = array();
-        foreach ($quizattempts as $key => $quizattempt) {
-            $usrid = $quizattempt->userid;
-            $qubaid = $quizattempt->uniqueid;
-            $mydm = null;
-            $qattempts = $DB->get_records('question_attempts', array('questionusageid' => $qubaid));
-            foreach ($qattempts as $qattempt) {
-                $questionid = $qattempt->questionid;
-                if (!isset($question['qtype'][$questionid])) {
-                    continue;
-                }
-
-                // Firstly see if we already have graded questions, which will
-                // be the case if we're running in Adaptive mode or (regardless)
-                // for CodeRunner questions.
-                $max_fraction = $DB->get_record('question_attempt_steps',
-                        array('questionattemptid' => $qattempt->id, 'state'=>'complete'), "max(fraction) as fract");
-                if ($max_fraction) {
-                    $stmark[$usrid][$questionid] = array($max_fraction->fract, $question['maxmark'][$questionid]);
-                } else if ($question['qtype'][$questionid] === 'coderunner') {
-                    $stmark[$usrid][$questionid] = false;
-                } else {
-
-                    // No fraction available. Try the slow way.
-                    $myresponse = array();
-                    $mydm = new quiz_scoreboard_mark($qubaid);
-                    $qattemptsteps = $DB->get_records('question_attempt_steps',
-                            array('questionattemptid' => $qattempt->id, 'state'=>'complete'));
-                    foreach ($qattemptsteps as $qattemptstep) {
-
-                        $answers = $DB->get_records('question_attempt_step_data', array('attemptstepid' => $qattemptstep->id));
-                        foreach ($answers as $answer) {
-                            $myresponse[$answer->name] = $answer->value;
-                        }
-                        if (count($myresponse) > 0) {
-                            $mark = $mydm->get_mark($qattempt->slot, $myresponse);
-                            if ($mark) {
-                                $stmark[$usrid][$questionid] = $mark;
-                            } else {
-                                $stmark[$usrid][$questionid] = false;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
+        list($questions, $totalquizmark) = $this->get_all_questions($quizid);
+        $stmark = $this->get_all_student_marks($quizid, $questions);
         $qmaxtime = $this->scoreboardquizmaxtime($quizcontextid);
 
         if ($order) {
@@ -198,38 +162,35 @@ class quiz_scoreboard_report extends quiz_default_report {
         echo "<table class='table table-bordered mod-quiz-report-scoreboard-table' style='width:auto' id='timemodified' name=$qmaxtime>\n";
         echo "<thead><tr>";
 
-        echo "<th>Name</th>\n<th style='text-align:center'>Total</th>\n";
+        echo "<th>Name</th>\n<th style='text-align:center'>Total</th><th>Percent</th>\n";
 
         $qnum = 1;
-        foreach ($slots as $key => $slotvalue) {
-            echo "<th style=\"word-wrap: break-word;text-align:center\">";
-            if (isset($question['name'][$key])) {
-                // echo substr(trim(strip_tags($question['name'][$key])), 0, 80);
-                echo "Q" . strval($qnum);
-                $qnum += 1;
-            }
+        foreach ($questions as $slot => $question) {
+            echo "<th title='{$question->name}' style='word-wrap: break-word;text-align:center'>";
+            echo "Q" . strval($qnum);
+            $qnum += 1;
             echo "</th>\n";
         }
         echo "</tr>\n</thead>\n<tbody>";
 
         // Create the table.
+        $rows = [];
         if (isset($users)) {
-            $rows = [];
             foreach ($users as $user) {
                 $row = "<tr>";
                 $name = $this->scoreboard_find_student_gridview($user);
                 $row .= "<td>" . $name . "</td>\n";
                 $total_mark = 0;
                 $markshtml = '';
-                foreach ($slots as $questionid => $slotvalue) {
+                foreach ($questions as $slotnum => $question) {
                     $mark = 0;
-                    if (isset($stmark[$user][$questionid]) and $stmark[$user][$questionid]) {
-                        list($fraction, $outof) = $stmark[$user][$questionid];
+                    if (isset($stmark[$user][$slotnum]) and $stmark[$user][$slotnum]) {
+                        list($fraction, $outof) = $stmark[$user][$slotnum];
                         $mark = $fraction * $outof;
                         $class = 'mark';
-                        if ($fraction > 0.8) {
+                        if ($fraction > 0.9) {
                             $class .= ' correct';
-                        } else if ($fraction > 0.2) {
+                        } else if ($fraction >= 0.1) {
                             $class .= ' partial';
                         } else if ($fraction > 0.0) {
                             $class .= ' wrong';
@@ -243,6 +204,8 @@ class quiz_scoreboard_report extends quiz_default_report {
                     }
                 }
                 $row .= "<td class='mark total'>" . number_format($total_mark, 2) . "</td>";
+                $percent = 100 * $total_mark / $totalquizmark;
+                $row .= "<td class='mark percent'>" . number_format($percent, 1) . "</td>";
                 $row .= "$markshtml</tr>\n";
                 $rows[] = array($name, $total_mark, $row);
             }
@@ -309,6 +272,101 @@ class quiz_scoreboard_report extends quiz_default_report {
     }
 
     /**
+     * Return the array of marks $stmark[$userid][$slotnum] for a given quiz. Each
+     * mark is either false (no mark can be determined) or a 2-element array of
+     * fraction, max_possible_mark
+     * @param $quizid The id of the quiz of interest
+     * @param $questions A map from slot_number to a quiz_scoreboard_report_question object.
+     * @return array A map from ($userid, $slotnum) to a 2-element array
+     * (mark_fraction, mark_out_of) or false if no mark can be determined.
+     */
+    function get_all_student_marks($quizid, $questions) {
+        global $DB;
+        $quizattempts = $DB->get_records('quiz_attempts', array('quiz' => $quizid));
+        $stmark = array();
+        foreach ($quizattempts as $key => $quizattempt) {
+            $usrid = $quizattempt->userid;
+            $qubaid = $quizattempt->uniqueid;
+            $dm = null;  // Question engine data mapper
+            $qattempts = $DB->get_records('question_attempts', array('questionusageid' => $qubaid));
+            foreach ($qattempts as $qattempt) {
+                $slotnum = $qattempt->slot;
+                if (!array_key_exists($slotnum, $questions)) {
+                    continue;
+                }
+                $maxmark = $questions[$slotnum]->maxmark;
+
+                // Firstly see if we already have graded questions, which will
+                // be the case if we're running in Adaptive mode or (regardless)
+                // for CodeRunner questions.
+                $max_fraction = $DB->get_record('question_attempt_steps',
+                        array('questionattemptid' => $qattempt->id), "max(fraction) as fract");
+                if ($max_fraction && is_numeric($max_fraction->fract)) {
+                    $stmark[$usrid][$slotnum] = array($max_fraction->fract, $maxmark);
+                } else {
+                    // No fraction available. Try the slow way.
+                    if ($dm === null) {
+                        // Get a question engine data mapper
+                        $dm = question_engine::load_questions_usage_by_activity($qubaid);
+                    }
+                    $fraction = $this->grade_responses($dm, $qattempt);
+                    $stmark[$usrid][$slotnum] = array($fraction, $maxmark);
+                }
+            }
+        }
+        return $stmark;
+    }
+
+
+    /**
+     * Return the best mark (fraction 0 - 1) obtained by a particular user's
+     * attempt on a particular question.
+     * @param type $dm Question engine data mapper object
+     * @param $qattempt The question attempt object (from the DB).
+     * @return The best mark faction earned over all attempts, or false if no mark
+     * can be determined.
+     */
+    private function grade_responses($dm, $qattempt) {
+        global $DB;
+        $bestmark = false;
+        $qattemptsteps = $DB->get_records('question_attempt_steps',
+                array('questionattemptid' => $qattempt->id));
+        foreach ($qattemptsteps as $qattemptstep) {
+            $answer = $DB->get_record('question_attempt_step_data',
+                    array('attemptstepid' => $qattemptstep->id, 'name' => 'answer'));
+            if ($answer) {
+                $mark = $this->get_mark_fraction($dm, $qattempt->slot, $answer->value);
+                if ($mark && ($bestmark === false || $mark > $bestmark)) {
+                    $bestmark = $mark;
+                }
+            }
+        }
+        return $bestmark;
+    }
+
+
+   /**
+     * Function to return the graded responses to the question.
+     *
+     * @param int $slot The slot number of the question in the quiz.
+     * @param string $response The response that the student gave.
+     * @return The fraction of the marks awarded to the student's response or
+     * false if the response cannot be graded for any reason.
+     */
+    public function get_mark_fraction ($dm, $slot, $response) {
+        $question = $dm->get_question($slot);
+        if (method_exists($question, 'grade_response')
+            && is_callable(array($question, 'grade_response'))) {
+            $grade = $question->grade_response($response);
+            if ($grade[0] == 0) {
+                $grade[0] = 0.001; // Non-zero means student attempted the question
+            }
+            return $grade[0];
+        }
+        return false;
+    }
+
+    /**
      * Return the greatest time that a student responded to a given quiz.
      *
      * This is used to determine if the teacher view of the graph should be refreshed.
@@ -328,43 +386,29 @@ class quiz_scoreboard_report extends quiz_default_report {
     }
 
     /**
-     * Function to get the questionids as the keys to the $slots array so we
-     * know all the questions in the quiz. Hacked to suppress Description
-     * questions. TODO: refactor scoreboardslots and scoreboardquestion to
-     * avoid redundant DB queries.
+     * Function to return an array mapping from slotnum to question info.
      * @param int $quizid The id for this quiz.
-     * @return array $marks The max_marks indexed by question ids.
+     * @return array A two element array. First element is a map from slotnum
+     * to a quiz_report_scoreboardquestion object. Second element is the
+     * total mark possible over all questions.
      */
-    private function scoreboardslots($quizid) {
+    private function get_all_questions($quizid) {
         global $DB;
-        $slots = array();
-        $myslots = $DB->get_records('quiz_slots', array('quizid' => $quizid));
-        foreach ($myslots as $key => $value) {
-            if ($myquestion = $DB->get_record('question', array('id' => $value->questionid))) {
-                if ($myquestion->qtype != 'description') {
-                    $slots[$value->questionid] = $value->maxmark;
-                }
+        $questions = array();
+        $totalquizmark = 0;
+        $slots = $DB->get_records('quiz_slots', array('quizid' => $quizid));
+        foreach ($slots as $slotid => $slot) {
+            $qid = $slot->questionid;
+            if (($question = $DB->get_record('question', array('id' => $qid))) &&
+                    $question->qtype != 'description') {
+                $questions[$slot->slot] = new quiz_scoreboard_report_question(
+                   $qid, $question->name, $question->qtype, $slot->maxmark);
+                $totalquizmark += $slot->maxmark;
             }
         }
-        return $slots;
+        return array($questions, $totalquizmark);
     }
-    /**
-     * Function to get the qtype, name, default mark for each question.
-     * @param array $slots and array of slot ids indexed by question ids.
-     * @return array $question. A doubly indexed array giving qtype, qname, and qtext for the questions.
-     */
-    private function scoreboardquestion($slots) {
-        global $DB;
-        $question = array();
-        foreach ($slots as $questionid => $maxmark) {
-            if ($myquestion = $DB->get_record('question', array('id' => $questionid))) {
-                $question['qtype'][$questionid] = $myquestion->qtype;
-                $question['name'][$questionid] = $myquestion->name;
-                $question['maxmark'][$questionid] = $maxmark;
-            }
-        }
-        return $question;
-    }
+
 
     /**
      * Return the number of users who have submitted answers to this quiz instance.
