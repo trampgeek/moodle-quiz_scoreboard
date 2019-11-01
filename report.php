@@ -301,10 +301,11 @@ class quiz_scoreboard_report extends quiz_default_report {
                 // for CodeRunner questions.
                 $max_fraction = $DB->get_record('question_attempt_steps',
                         array('questionattemptid' => $qattempt->id), "max(fraction) as fract");
-                if ($max_fraction && is_numeric($max_fraction->fract)) {
+                if ($max_fraction) {
                     $stmark[$usrid][$slotnum] = array($max_fraction->fract, $maxmark);
                 } else {
                     // No fraction available. Try the slow way.
+                    debugging("The slow way!");
                     if ($dm === null) {
                         // Get a question engine data mapper
                         $dm = question_engine::load_questions_usage_by_activity($qubaid);
