@@ -335,7 +335,7 @@ class quiz_scoreboard_report extends quiz_default_report {
             $answer = $DB->get_record('question_attempt_step_data',
                     array('attemptstepid' => $qattemptstep->id, 'name' => 'answer'));
             if ($answer) {
-                $mark = $this->get_mark_fraction($dm, $qattempt->slot, $answer->value);
+                $mark = $this->get_mark_fraction($dm, $qattempt->slot, array('answer' => $answer->value));
                 if ($mark && ($bestmark === false || $mark > $bestmark)) {
                     $bestmark = $mark;
                 }
