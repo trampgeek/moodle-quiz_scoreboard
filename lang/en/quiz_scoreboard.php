@@ -23,18 +23,10 @@
  */
 
 $string['allresponses'] = 'All responses';
- $string['questionis'] = 'The question is: ';
-$string['fractioncolors'] = 'Fraction Colors';
-$string['gradedexplain'] = 'If a student has not finished the quiz or does several attempts, the indicated &quot;Grade&quot; is not the grade for the quiz.';
-$string['hidegradekey'] = 'Hide Grading Legend';
-$string['hidegrades'] = 'Hide the &quot;Grade&quot; answers would receive';
 $string['hidenames'] = 'Hide student names.';
 $string['scoreboard'] = 'Scoreboard';
 $string['firstname'] = 'First Name';
-$string['from'] = ' from ';
 $string['lastname'] = 'Last Name';
-$string['numberofresponses'] = 'Number of Responses';
-$string['or'] = ' or ';
 $string['orderscore'] = 'Order table by score';
 $string['ordername'] = 'Order table by name';
 $string['pluginname'] = 'Scoreboard';
@@ -42,10 +34,8 @@ $string['privacy:metadata'] = 'The Quiz Scoreboard plugin does not store any per
 $string['quizname'] = 'Quiz name';
 $string['responses'] = 'Responses';
 $string['refreshpage'] = 'Refresh Page!';
-$string['showgradetitle'] = 'This shows if an answer is correct but does not grade the quiz';
-$string['shownames'] = 'Show student names.';
 $string['somethingiswrongwithanswerid'] = 'Something is wrong with answer id = ';
-$string['whichgroups'] = 'Which groups do you want to see? ';
+$string['whichgroups'] = 'Select group: ';
 $string['youmustbeauthorized'] = 'You must be authorized to access this site.';
 $string['youmustsubmitquestonid'] = 'You must submit a valid questionid.';
 

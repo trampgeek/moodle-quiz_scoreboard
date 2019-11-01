@@ -121,28 +121,28 @@ class quiz_scoreboard_report extends quiz_default_report {
         // Find out if there may be groups. If so, allow the teacher to choose a group.
         if ($cm->groupmode) {
             echo get_string('whichgroups', 'quiz_scoreboard');
-            $urlget = "id=$id&mode=$mode&order=$order&group=0";
-            echo "<a href='".$CFG->wwwroot."/mod/quiz/report.php?$urlget'>";
-            echo get_string('allresponses', 'quiz_scoreboard')."</a>";
+            echo "<select onchange='location=this.value;'>";
+            $all = get_string('allresponses', 'quiz_scoreboard');
+            $urlqparams = "id=$id&mode=$mode&order=$order&group=0";
+            $url = $CFG->wwwroot."/mod/quiz/report.php?$urlqparams";
+            $selected = $group == 0 ? ' selected' : '';
+            echo "<option value='$url'$selected>$all</option>\n";
             $groups = $DB->get_records('groups', array('courseid' => $course->id));
             foreach ($groups as $grp) {
-                $urlget = "id=$id&mode=$mode&order=$order&group=".$grp->id;
-                echo get_string('or', 'quiz_scoreboard')."<a href='".$CFG->wwwroot."/mod/quiz/report.php?$urlget'>";
-                echo $grp->name."</a>";
+                $urlqparams = "id=$id&mode=$mode&order=$order&group=".$grp->id;
+                $url = $CFG->wwwroot."/mod/quiz/report.php?$urlqparams";
+                $selected = $group == $grp->id ? ' selected' : '';
+                echo "<option value='$url'$selected>{$grp->name}</option>\n";
             }
-        }
+            echo "</select>\n";
+	}
 
-         // Javascript to show 'Refresh Page' message when the page stops refreshing responses.
+        // Javascript to show 'Refresh Page' message when the page stops refreshing responses.
         echo "\n<script>";
         echo "\n  function modquizreportrefresh() {";
         echo "\n    document.getElementById('mod-quiz-scoreboard-refresh').setAttribute(\"style\", \"display:inline\");";
         echo "\n }";
         echo "\n</script>";
-
-        if ($group) {
-            $grpname = $DB->get_record('groups', array('id' => $group));
-            echo get_string('from', 'quiz_scoreboard').$grpname->name;
-        }
 
         $sofar = $this->scoreboard_who_sofar_gridview($quizid);
 
