@@ -162,7 +162,7 @@ class quiz_scoreboard_report extends quiz_default_report {
         echo "<table class='table table-bordered mod-quiz-report-scoreboard-table' style='width:auto' id='timemodified' name=$qmaxtime>\n";
         echo "<thead><tr>";
 
-        echo "<th>Name</th>\n<th style='text-align:center'>Total</th><th>Percent</th>\n";
+        echo "<th>Row</th><th>Name</th>\n<th style='text-align:center'>Total</th><th>Percent</th>\n";
 
         $qnum = 1;
         foreach ($questions as $slot => $question) {
@@ -177,9 +177,9 @@ class quiz_scoreboard_report extends quiz_default_report {
         $rows = [];
         if (isset($users)) {
             foreach ($users as $user) {
-                $row = "<tr>";
+                $row = '';
                 $name = $this->scoreboard_find_student_gridview($user);
-                $row .= "<td>" . $name . "</td>\n";
+                $row .= "<td>" . $name . "</td>";
                 $total_mark = 0;
                 $markshtml = '';
                 foreach ($questions as $slotnum => $question) {
@@ -206,7 +206,7 @@ class quiz_scoreboard_report extends quiz_default_report {
                 $row .= "<td class='mark total'>" . number_format($total_mark, 2) . "</td>";
                 $percent = 100 * $total_mark / $totalquizmark;
                 $row .= "<td class='mark percent'>" . number_format($percent, 1) . "</td>";
-                $row .= "$markshtml</tr>\n";
+                $row .= "$markshtml";
                 $rows[] = array($name, $total_mark, $row);
             }
         }
@@ -227,8 +227,10 @@ class quiz_scoreboard_report extends quiz_default_report {
                 }
             });
         }
+        $irow = 0;
         foreach ($rows as $row) {
-            echo $row[2];
+            $irow += 1;
+            echo "<tr><td>" . strval($irow) . "</td>" . $row[2] . "</tr>\n";
         }
 
         // Close off the table

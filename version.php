@@ -18,15 +18,15 @@
  * Quiz scoreboard report version information.
  *
  * @package   quiz_scoreboard
- * @copyright 2019 Richard Lobb
+ * @copyright 2019, 2020 Richard Lobb
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->version   = 2019110100;
+$plugin->version   = 2020042000;
 $plugin->requires  = 2016120500;
 $plugin->cron      = 18000;
 $plugin->component = 'quiz_scoreboard';
 $plugin->maturity = MATURITY_BETA;
-$plugin->release   = 'v0.1.0 (2019110100) for Moodle 3.2+';
+$plugin->release   = 'v0.2.0 (2019110100) for Moodle 3.2+';
