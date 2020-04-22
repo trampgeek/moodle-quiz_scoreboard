@@ -239,7 +239,7 @@ class quiz_scoreboard_report extends quiz_default_report {
         // Javascript to refresh the page if the contents of the table change.
         $graphicshashurl = $CFG->wwwroot."/mod/quiz/report/scoreboard/graphicshash.php?id=$id";
         // The number of seconds before checking to see if the answers have changed is the $refreshtime.
-        $refreshtime = 10;
+        $refreshtime = 60;
         $sessionconfig = $DB->get_record('config', array('name' => 'sessiontimeout'));
         $sessiontimeout = $sessionconfig->value;
         $maxrepeat = intval($sessiontimeout / $refreshtime);
